@@ -1,6 +1,7 @@
 services:
   ollama:
-    image: ollama/ollama
+    image: ollama/ollama:latest
+    container_name: ollama
     ports:
       - "11434:11434"
     volumes:
@@ -8,12 +9,16 @@ services:
 
   api:
     build: .
+    container_name: rag-edf-api
     ports:
       - "8000:8000"
-    volumes:
-      - ./vectorstore:/app/vectorstore
+    env_file:
+      - .env
     environment:
       - OLLAMA_URL=http://ollama:11434/api/generate
+      - CHROMA_PATH=/app/vectorstore
+    volumes:
+      - ./vectorstore:/app/vectorstore
     depends_on:
       - ollama
 

@@ -1,0 +1,7 @@
+.env
+.venv/
+vectorstore/
+__pycache__/
+*.pyc
+.git/
+*.tar

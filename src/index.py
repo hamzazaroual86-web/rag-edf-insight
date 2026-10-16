@@ -12,7 +12,7 @@ CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
 BATCH_SIZE = 2000
 EMBEDDING_MODEL = "paraphrase-multilingual-mpnet-base-v2"
-CHROMA_PATH = os.path.expanduser("~/rag-edf-insight/vectorstore")
+CHROMA_PATH = os.environ.get("CHROMA_PATH", os.path.expanduser("~/rag-edf-insight/vectorstore"))
 COLLECTION_NAME = "edf_reports"
 
 YEARS = ["2023", "2024", "2025"]
