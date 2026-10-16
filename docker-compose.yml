@@ -1,0 +1,21 @@
+services:
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./vectorstore:/app/vectorstore
+    environment:
+      - OLLAMA_URL=http://ollama:11434/api/generate
+    depends_on:
+      - ollama
+
+volumes:
+  ollama_data:
