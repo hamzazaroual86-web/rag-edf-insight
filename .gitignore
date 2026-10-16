@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment — contains Azure secrets
+.env
+
+# ChromaDB vectorstore — too large for GitHub
+vectorstore/
+
+# Docker
+*.tar
+
+# OS
+.DS_Store
