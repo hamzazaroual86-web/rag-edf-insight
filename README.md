@@ -7,11 +7,24 @@ Retrieval-Augmented Generation system built on EDF annual reports (2023, 2024, 2
 - PDF extraction: PyMuPDF (fitz)
 - Chunking: LangChain RecursiveCharacterTextSplitter (512 tokens, 64 overlap)
 - Embeddings: sentence-transformers (paraphrase-multilingual-mpnet-base-v2)
-- Vector store: ChromaDB (persistent, cosine distance, HNSW)
+- Vector store: ChromaDB (persistent, cosine distance, HNSW) — stored in Azure Blob, pulled at startup
 - LLM: Ollama (qwen2.5:7b local, llama3 fallback)
 - API: FastAPI (REST)
 - Cloud: Azure Blob Storage, Azure Container Registry, Azure Container Apps
 - Containerization: Docker + docker-compose
+
+## Architecture
+
+Indexing (offline, run once):
+
+    EDF PDFs (Azure Blob) -> PyMuPDF extract -> chunk -> embed -> ChromaDB -> Azure Blob (vectorstore)
+
+Serving (runtime):
+
+    Container starts -> downloads vectorstore from Azure Blob -> ChromaDB on local disk
+    -> query embedded -> top-k retrieval -> prompt -> LLM -> sourced answer
+
+The vector store is not baked into the image. It lives in Azure Blob Storage and is downloaded to local disk at startup, so the image stays light and the data is decoupled from the code — updating the vectors needs no image rebuild.
 
 ## Project structure
 
@@ -19,7 +32,8 @@ Retrieval-Augmented Generation system built on EDF annual reports (2023, 2024, 2
     ├── src/
     │   ├── extract.py       # Download PDFs from Azure Blob, extract text
     │   ├── index.py         # Chunk text, build ChromaDB vector index
-    │   ├── rag.py           # RAG pipeline: retrieve + generate with Ollama
+    │   ├── core.py          # Shared RAG logic + pulls vectorstore from Blob at startup
+    │   ├── rag.py           # CLI RAG pipeline: retrieve + generate with Ollama
     │   └── api.py           # FastAPI REST API (/health, /ask)
     ├── Dockerfile
     ├── docker-compose.yml
@@ -73,9 +87,13 @@ The API is deployed on Azure Container Apps:
 
     https://app-rag-edf.agreeablerock-08d8729a.francecentral.azurecontainerapps.io/health
 
-The /health endpoint is live. The /ask endpoint requires Ollama which runs locally — the cloud deployment demonstrates containerization and Azure infrastructure skills.
+Infrastructure:
 
-Infrastructure: Azure Blob Storage (PDF hosting) → Azure Container Registry (Docker image) → Azure Container Apps (API hosting).
+    Azure Blob Storage       -> stores PDFs and the vector store
+    Azure Container Registry -> stores the Docker image
+    Azure Container Apps     -> hosts the API (scales to zero when idle)
+
+The vector store is downloaded from Azure Blob at container startup; the storage connection string is injected as a Container App secret. The /health endpoint is live and serves retrieval from the Blob-backed vector store. Answer generation uses Ollama locally; the live /ask can be wired to a hosted LLM API to generate answers in the cloud.
 
 ## Author
 
