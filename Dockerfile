@@ -11,8 +11,11 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Application code only — no .env, no secrets
+# Application code only — vectorstore is fetched from Blob at startup
 COPY src/ ./src/
+
+ENV PYTHONPATH=/app/src
+ENV CHROMA_PATH=/app/vectorstore
 
 EXPOSE 8000
 

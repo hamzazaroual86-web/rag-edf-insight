@@ -1,4 +1,5 @@
 import os
+import zipfile
 import requests
 import chromadb
 from sentence_transformers import SentenceTransformer
@@ -12,10 +13,30 @@ TOP_K = 5
 MAX_DISTANCE = 0.5
 TIMEOUT = 300
 
-# --- Embedding model (loaded once) ---
-embedder = SentenceTransformer(EMBED_MODEL)
 
-# --- ChromaDB client ---
+def download_vectorstore():
+    """Fetch the vectorstore from Azure Blob when it is missing on local disk.
+    Runs in the cloud, where the store is not shipped inside the image."""
+    if os.path.exists(os.path.join(CHROMA_PATH, "chroma.sqlite3")):
+        return
+    conn = os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+    if not conn:
+        return
+    from azure.storage.blob import BlobServiceClient
+    service = BlobServiceClient.from_connection_string(conn)
+    blob = service.get_blob_client(container="vectorstore", blob="vectorstore.zip")
+    os.makedirs(CHROMA_PATH, exist_ok=True)
+    zip_path = os.path.join(CHROMA_PATH, "vectorstore.zip")
+    with open(zip_path, "wb") as f:
+        f.write(blob.download_blob().readall())
+    with zipfile.ZipFile(zip_path) as archive:
+        archive.extractall(CHROMA_PATH)
+    os.remove(zip_path)
+
+
+# --- Load vectorstore (download from Blob in the cloud) and embedding model ---
+download_vectorstore()
+embedder = SentenceTransformer(EMBED_MODEL)
 client = chromadb.PersistentClient(path=CHROMA_PATH)
 collection = client.get_collection(name=COLLECTION_NAME)
 
@@ -44,7 +65,6 @@ def retrieve_chunks(query, top_k=TOP_K):
         n_results=top_k,
         include=["documents", "metadatas", "distances"]
     )
-
     chunks = []
     for i, doc in enumerate(results["documents"][0]):
         distance = results["distances"][0][i]
@@ -65,15 +85,12 @@ def build_prompt(query, chunks):
     """Build the LLM prompt from retrieved chunks."""
     if not chunks:
         return f"Question: {query}\n\nNo relevant context found in EDF reports. Answer based on general knowledge and state that no specific EDF data was found."
-
     context_parts = []
     for c in chunks:
         header = f"[Source: {c['source']} | Year: {c['year']} | Page: {c['page']} | Distance: {c['distance']}]"
         context_parts.append(f"{header}\n{c['text']}")
-
     context_block = "\n\n---\n\n".join(context_parts)
-
-    return f"""You are an expert analyst on EDF (Electricité de France) annual reports.
+    return f"""You are an expert analyst on EDF (Electricite de France) annual reports.
 Use ONLY the context below to answer. If the context is insufficient, say so.
 Always cite the source document and year.
 Answer in the same language as the question.

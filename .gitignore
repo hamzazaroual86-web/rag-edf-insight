@@ -7,10 +7,11 @@ __pycache__/
 # Environment — contains Azure secrets
 .env
 
-# ChromaDB vectorstore — too large for GitHub
+# ChromaDB vectorstore — too large for GitHub, lives in Azure Blob
 vectorstore/
 
-# Docker
+# Archives
+*.zip
 *.tar
 
 # OS
